@@ -1,9 +1,0 @@
-{
-  "name": "Recuentos Sopena",
-  "short_name": "Recuentos",
-  "start_url": "./index.html",
-  "display": "standalone",
-  "background_color": "#f4f3ef",
-  "theme_color": "#1d3557",
-  "icons": []
-}
