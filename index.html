@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recuentos Sopena</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  :root{
+    --bg:#f4f3ef; --card:#ffffff; --ink:#26251f; --muted:#7a786e;
+    --accent:#1d3557; --accent-light:#e8edf3; --border:#e2e0d6;
+    --ok:#2f6d3d; --ok-bg:#e6f2e8; --warn:#b5651d; --warn-bg:#fbeee0;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);}
+  header{background:var(--accent);color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;}
+  header h1{font-size:18px;margin:0;font-weight:600;}
+  header button{background:transparent;border:1px solid rgba(255,255,255,.4);color:#fff;padding:6px 12px;border-radius:6px;font-size:13px;}
+  main{max-width:720px;margin:0 auto;padding:16px;}
+
+  #loginScreen{max-width:340px;margin:80px auto;background:var(--card);padding:28px;border-radius:12px;border:1px solid var(--border);}
+  #loginScreen h2{margin-top:0;font-size:17px;}
+  #loginScreen input{width:100%;padding:10px;margin-bottom:10px;border:1px solid var(--border);border-radius:6px;font-size:14px;}
+  #loginScreen button{width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;}
+  #loginError{color:#b3261e;font-size:13px;min-height:18px;}
+
+  .tabs{display:flex;gap:8px;margin-bottom:16px;}
+  .tab{flex:1;text-align:center;padding:10px;border-radius:8px;background:var(--card);border:1px solid var(--border);font-size:14px;cursor:pointer;}
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;}
+
+  #captureBtn{display:block;width:100%;padding:16px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;margin-bottom:16px;}
+  #fileInput{display:none;}
+
+  .pending-item{display:flex;gap:12px;align-items:flex-start;}
+  .pending-item img{width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid var(--border);}
+  .pending-item .fields{flex:1;}
+  .pending-item label{font-size:11px;color:var(--muted);display:block;margin-bottom:2px;}
+  .pending-item input{width:100%;padding:7px;border:1px solid var(--border);border-radius:6px;font-size:14px;margin-bottom:6px;}
+
+  .lote-header label{font-size:11px;color:var(--muted);display:block;margin-bottom:2px;}
+  .lote-header input{width:100%;padding:9px;border:1px solid var(--border);border-radius:6px;font-size:14px;margin-bottom:8px;}
+  .lote-thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px;margin-bottom:10px;}
+  .lote-thumbs .thumb-wrap{position:relative;}
+  .lote-thumbs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;border:1px solid var(--border);}
+  .lote-thumbs .thumb-wrap.pendiente img{opacity:.4;}
+  .lote-thumbs .quitar{position:absolute;top:-6px;right:-6px;background:#fff;border:1px solid var(--border);border-radius:50%;width:20px;height:20px;font-size:12px;line-height:1;cursor:pointer;}
+  .badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;margin-bottom:6px;}
+  .badge.comprimiendo{background:var(--warn-bg);color:var(--warn);}
+  .badge.listo{background:var(--ok-bg);color:var(--ok);}
+  .row-actions{display:flex;gap:8px;margin-top:6px;}
+  .row-actions button{flex:1;padding:8px;border-radius:6px;border:none;font-size:13px;font-weight:600;}
+  .btn-guardar{background:var(--ok);color:#fff;}
+  .btn-borrar{background:#f1f0ea;color:var(--muted);}
+
+  #searchBox{width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:14px;font-size:14px;}
+  .day-group{margin-bottom:18px;}
+  .day-group h3{font-size:14px;color:var(--muted);margin:0 0 8px 4px;text-transform:uppercase;letter-spacing:.03em;}
+  .client-group{margin-bottom:10px;}
+  .client-group h4{font-size:14px;margin:0 0 6px 4px;}
+  .thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;}
+  .thumbs .thumb-wrap{position:relative;}
+  .thumbs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer;}
+  .thumbs .borrar{position:absolute;top:-6px;right:-6px;background:#fff;border:1px solid var(--border);border-radius:50%;width:22px;height:22px;font-size:13px;line-height:1;cursor:pointer;color:#b3261e;}
+
+  #lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:50;}
+  #lightbox img{max-width:92%;max-height:88%;border-radius:8px;}
+  #lightbox .close{position:absolute;top:16px;right:20px;color:#fff;font-size:28px;background:none;border:none;}
+
+  .empty{color:var(--muted);font-size:14px;text-align:center;padding:30px 0;}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <h2>Recuentos Sopena</h2>
+  <input type="email" id="loginEmail" placeholder="Correo" autocomplete="username">
+  <input type="password" id="loginPass" placeholder="Contraseña" autocomplete="current-password">
+  <button id="loginBtn">Entrar</button>
+  <p id="loginError"></p>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <h1>Recuentos Sopena</h1>
+    <button id="logoutBtn">Salir</button>
+  </header>
+
+  <main>
+    <div class="tabs">
+      <div class="tab active" data-tab="capturar">Capturar</div>
+      <div class="tab" data-tab="galeria">Galería</div>
+    </div>
+
+    <section id="tabCapturar">
+      <button id="captureBtn">📷 Seleccionar fotos de un cliente</button>
+      <input type="file" id="fileInput" accept="image/*" multiple>
+      <div id="pendingList"></div>
+    </section>
+
+    <section id="tabGaleria" style="display:none">
+      <div class="card" id="importCard">
+        <label style="font-size:13px;color:var(--muted);display:block;margin-bottom:8px;">
+          Importar lista de clientes desde Excel (columnas "Código" y "Nombre")
+        </label>
+        <input type="file" id="excelInput" accept=".xlsx,.xls">
+        <p id="importStatus" style="font-size:13px;color:var(--muted);margin:8px 0 0;"></p>
+      </div>
+      <input type="text" id="searchBox" placeholder="Buscar por cliente...">
+      <div id="galleryList"></div>
+    </section>
+  </main>
+</div>
+
+<div id="lightbox">
+  <button class="close" id="lightboxClose">×</button>
+  <img id="lightboxImg" src="">
+</div>
+
+<datalist id="clientesList"></datalist>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {
+  getFirestore, collection, addDoc, doc, setDoc, deleteDoc, writeBatch, query, orderBy, onSnapshot, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDSg5YMnLq0w0y_uXLO97RAVS-1BYc-OTU",
+  authDomain: "recuentos-diarios-logistica.firebaseapp.com",
+  projectId: "recuentos-diarios-logistica",
+  storageBucket: "recuentos-diarios-logistica.firebasestorage.app",
+  messagingSenderId: "527685811561",
+  appId: "1:527685811561:web:974570544fbeaa9ade11f8"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// Tamaño máximo objetivo por foto comprimida (bytes). Firestore permite
+// documentos de hasta 1 MiB, dejamos margen para el resto de campos.
+const MAX_IMAGE_BYTES = 700 * 1024;
+const MAX_DIMENSION = 1280;
+
+// ---------------- LOGIN ----------------
+document.getElementById("loginBtn").onclick = async () => {
+  const email = document.getElementById("loginEmail").value.trim();
+  const pass = document.getElementById("loginPass").value;
+  const errEl = document.getElementById("loginError");
+  errEl.textContent = "";
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch (e) {
+    errEl.textContent = "Correo o contraseña incorrectos.";
+  }
+};
+document.getElementById("logoutBtn").onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, (user) => {
+  document.getElementById("loginScreen").style.display = user ? "none" : "block";
+  document.getElementById("app").style.display = user ? "block" : "none";
+  if (user) {
+    cargarGaleria();
+    cargarClientes();
+  }
+});
+
+// ---------------- TABS ----------------
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.onclick = () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    document.getElementById("tabCapturar").style.display = tab.dataset.tab === "capturar" ? "block" : "none";
+    document.getElementById("tabGaleria").style.display = tab.dataset.tab === "galeria" ? "block" : "none";
+  };
+});
+
+// ---------------- CLIENTES (autocompletar) ----------------
+function cargarClientes() {
+  const q = query(collection(db, "clientes"), orderBy("nombre"));
+  onSnapshot(q, (snap) => {
+    const datalist = document.getElementById("clientesList");
+    datalist.innerHTML = "";
+    snap.docs.forEach(d => {
+      const opt = document.createElement("option");
+      opt.value = d.data().nombre;
+      datalist.appendChild(opt);
+    });
+  });
+}
+
+async function asegurarCliente(nombre) {
+  const id = nombre.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  if (!id) return;
+  await setDoc(doc(db, "clientes", id), { nombre: nombre.trim() }, { merge: true });
+}
+
+// ---------------- IMPORTAR CLIENTES DESDE EXCEL ----------------
+document.getElementById("excelInput").onchange = async (e) => {
+  const file = e.target.files[0];
+  const statusEl = document.getElementById("importStatus");
+  if (!file) return;
+
+  statusEl.textContent = "Leyendo el Excel...";
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: "array" });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const filas = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+  const clientes = filas
+    .map(f => ({
+      codigo: String(f["Código"] ?? f["Codigo"] ?? f["codigo"] ?? "").trim(),
+      nombre: String(f["Nombre"] ?? f["nombre"] ?? "").trim()
+    }))
+    .filter(c => c.nombre);
+
+  if (clientes.length === 0) {
+    statusEl.textContent = "No se encontraron filas con columna 'Nombre'.";
+    return;
+  }
+
+  statusEl.textContent = `Importando ${clientes.length} clientes...`;
+  const LOTE = 400;
+  for (let i = 0; i < clientes.length; i += LOTE) {
+    const batch = writeBatch(db);
+    clientes.slice(i, i + LOTE).forEach(c => {
+      const id = c.codigo || c.nombre.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      batch.set(doc(db, "clientes", id), { nombre: c.nombre, codigo: c.codigo }, { merge: true });
+    });
+    await batch.commit();
+    statusEl.textContent = `Importando... ${Math.min(i + LOTE, clientes.length)} de ${clientes.length}`;
+  }
+  statusEl.textContent = `Listo: ${clientes.length} clientes importados.`;
+  e.target.value = "";
+};
+
+// ---------------- CAPTURA Y COMPRESIÓN (por lotes: varias fotos, un cliente) ----------------
+const captureBtn = document.getElementById("captureBtn");
+const fileInput = document.getElementById("fileInput");
+const pendingList = document.getElementById("pendingList");
+let pendingLotes = []; // {id, cliente, fecha, fotos: [{fotoId, previewUrl, estado}]}
+
+captureBtn.onclick = () => fileInput.click();
+
+fileInput.onchange = () => {
+  const files = Array.from(fileInput.files);
+  if (files.length === 0) return;
+
+  const hoy = new Date().toISOString().slice(0, 10);
+  const lote = {
+    id: crypto.randomUUID(),
+    cliente: "",
+    fecha: hoy,
+    fotos: files.map(() => ({ fotoId: crypto.randomUUID(), previewUrl: "", estado: "comprimiendo" }))
+  };
+  pendingLotes.push(lote);
+  renderPending();
+
+  files.forEach((file, i) => comprimirImagen(file, lote.fotos[i], lote));
+  fileInput.value = "";
+};
+
+function comprimirImagen(file, foto, lote) {
+  const img = new Image();
+  const reader = new FileReader();
+  reader.onload = () => {
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > height && width > MAX_DIMENSION) {
+        height = Math.round(height * (MAX_DIMENSION / width));
+        width = MAX_DIMENSION;
+      } else if (height > MAX_DIMENSION) {
+        width = Math.round(width * (MAX_DIMENSION / height));
+        height = MAX_DIMENSION;
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+
+      let quality = 0.72;
+      let dataUrl = canvas.toDataURL("image/jpeg", quality);
+      while (dataUrl.length > MAX_IMAGE_BYTES * 1.37 && quality > 0.3) {
+        quality -= 0.1;
+        dataUrl = canvas.toDataURL("image/jpeg", quality);
+      }
+
+      foto.previewUrl = dataUrl;
+      foto.estado = "listo";
+      renderPending();
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function renderPending() {
+  pendingList.innerHTML = "";
+  pendingLotes.forEach(lote => {
+    const div = document.createElement("div");
+    div.className = "card";
+    const nFotos = lote.fotos.length;
+    const nListas = lote.fotos.filter(f => f.estado === "listo").length;
+
+    div.innerHTML = `
+      <div class="lote-header">
+        <span class="badge ${nListas === nFotos ? "listo" : "comprimiendo"}">
+          ${nListas === nFotos ? `${nFotos} foto(s) lista(s)` : `Preparando fotos... ${nListas}/${nFotos}`}
+        </span>
+        <label>Cliente (una vez para todas estas fotos)</label>
+        <input type="text" data-field="cliente" value="${lote.cliente}" placeholder="Escribe o elige un cliente" list="clientesList">
+        <label>Fecha</label>
+        <input type="date" data-field="fecha" value="${lote.fecha}">
+      </div>
+      <div class="lote-thumbs"></div>
+      <div class="row-actions">
+        <button class="btn-guardar">Guardar ${nFotos} foto(s)</button>
+        <button class="btn-borrar">Descartar lote</button>
+      </div>
+    `;
+
+    div.querySelector('[data-field="cliente"]').oninput = (e) => lote.cliente = e.target.value;
+    div.querySelector('[data-field="fecha"]').oninput = (e) => lote.fecha = e.target.value;
+
+    const thumbsDiv = div.querySelector(".lote-thumbs");
+    lote.fotos.forEach(foto => {
+      const wrap = document.createElement("div");
+      wrap.className = `thumb-wrap ${foto.estado === "listo" ? "" : "pendiente"}`;
+      wrap.innerHTML = `
+        ${foto.previewUrl ? `<img src="${foto.previewUrl}">` : `<div style="width:100%;aspect-ratio:1;background:#eee;border-radius:6px"></div>`}
+        <button class="quitar" title="Quitar esta foto">×</button>
+      `;
+      wrap.querySelector(".quitar").onclick = () => {
+        lote.fotos = lote.fotos.filter(f => f.fotoId !== foto.fotoId);
+        if (lote.fotos.length === 0) {
+          pendingLotes = pendingLotes.filter(l => l.id !== lote.id);
+        }
+        renderPending();
+      };
+      thumbsDiv.appendChild(wrap);
+    });
+
+    div.querySelector(".btn-guardar").onclick = () => guardarLote(lote);
+    div.querySelector(".btn-borrar").onclick = () => {
+      pendingLotes = pendingLotes.filter(l => l.id !== lote.id);
+      renderPending();
+    };
+    pendingList.appendChild(div);
+  });
+}
+
+async function guardarLote(lote) {
+  if (!lote.cliente.trim()) {
+    alert("Escribe el nombre del cliente antes de guardar.");
+    return;
+  }
+  if (lote.fotos.some(f => f.estado !== "listo")) {
+    alert("Espera a que terminen de prepararse todas las fotos.");
+    return;
+  }
+
+  for (const foto of lote.fotos) {
+    await addDoc(collection(db, "recuentos"), {
+      cliente: lote.cliente.trim(),
+      fecha: lote.fecha,
+      imagen: foto.previewUrl,
+      usuario: auth.currentUser.email,
+      creado: serverTimestamp()
+    });
+  }
+  await asegurarCliente(lote.cliente);
+
+  pendingLotes = pendingLotes.filter(l => l.id !== lote.id);
+  renderPending();
+}
+
+// ---------------- GALERÍA ----------------
+let todosLosRecuentos = [];
+
+function cargarGaleria() {
+  const q = query(collection(db, "recuentos"), orderBy("fecha", "desc"));
+  onSnapshot(q, (snap) => {
+    todosLosRecuentos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderGaleria();
+  });
+}
+
+document.getElementById("searchBox").oninput = renderGaleria;
+
+function renderGaleria() {
+  const filtro = document.getElementById("searchBox").value.trim().toLowerCase();
+  const galleryList = document.getElementById("galleryList");
+  const filtrados = filtro
+    ? todosLosRecuentos.filter(r => r.cliente.toLowerCase().includes(filtro))
+    : todosLosRecuentos;
+
+  if (filtrados.length === 0) {
+    galleryList.innerHTML = `<p class="empty">No hay recuentos que mostrar.</p>`;
+    return;
+  }
+
+  const porFecha = {};
+  filtrados.forEach(r => {
+    porFecha[r.fecha] = porFecha[r.fecha] || {};
+    porFecha[r.fecha][r.cliente] = porFecha[r.fecha][r.cliente] || [];
+    porFecha[r.fecha][r.cliente].push(r);
+  });
+
+  galleryList.innerHTML = "";
+  Object.keys(porFecha).sort().reverse().forEach(fecha => {
+    const dayDiv = document.createElement("div");
+    dayDiv.className = "day-group";
+    dayDiv.innerHTML = `<h3>${formatearFecha(fecha)}</h3>`;
+    Object.keys(porFecha[fecha]).sort().forEach(cliente => {
+      const clientDiv = document.createElement("div");
+      clientDiv.className = "client-group";
+      clientDiv.innerHTML = `<h4>${cliente}</h4><div class="thumbs"></div>`;
+      const thumbs = clientDiv.querySelector(".thumbs");
+      porFecha[fecha][cliente].forEach(r => {
+        const wrap = document.createElement("div");
+        wrap.className = "thumb-wrap";
+        wrap.innerHTML = `<img src="${r.imagen}"><button class="borrar" title="Borrar esta foto">×</button>`;
+        wrap.querySelector("img").onclick = () => abrirLightbox(r.imagen);
+        wrap.querySelector(".borrar").onclick = () => borrarRecuento(r.id);
+        thumbs.appendChild(wrap);
+      });
+      dayDiv.appendChild(clientDiv);
+    });
+    galleryList.appendChild(dayDiv);
+  });
+}
+
+function formatearFecha(iso) {
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+}
+
+function abrirLightbox(url) {
+  document.getElementById("lightboxImg").src = url;
+  document.getElementById("lightbox").style.display = "flex";
+}
+
+async function borrarRecuento(id) {
+  if (!confirm("¿Borrar esta foto? No se puede deshacer.")) return;
+  await deleteDoc(doc(db, "recuentos", id));
+}
+document.getElementById("lightboxClose").onclick = () => {
+  document.getElementById("lightbox").style.display = "none";
+};
+document.getElementById("lightbox").onclick = (e) => {
+  if (e.target.id === "lightbox") document.getElementById("lightbox").style.display = "none";
+};
+</script>
+</body>
+</html>
