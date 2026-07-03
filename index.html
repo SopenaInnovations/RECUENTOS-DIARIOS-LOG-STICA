@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recuentos Sopena</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  :root{
+    --bg:#f4f3ef; --card:#ffffff; --ink:#26251f; --muted:#7a786e;
+    --accent:#1d3557; --accent-light:#e8edf3; --border:#e2e0d6;
+    --ok:#2f6d3d; --ok-bg:#e6f2e8; --warn:#b5651d; --warn-bg:#fbeee0;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);}
+  header{background:var(--accent);color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;}
+  header h1{font-size:18px;margin:0;font-weight:600;}
+  header button{background:transparent;border:1px solid rgba(255,255,255,.4);color:#fff;padding:6px 12px;border-radius:6px;font-size:13px;}
+  main{max-width:720px;margin:0 auto;padding:16px;}
+
+  #loginScreen{max-width:340px;margin:80px auto;background:var(--card);padding:28px;border-radius:12px;border:1px solid var(--border);}
+  #loginScreen h2{margin-top:0;font-size:17px;}
+  #loginScreen input{width:100%;padding:10px;margin-bottom:10px;border:1px solid var(--border);border-radius:6px;font-size:14px;}
+  #loginScreen button{width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:600;}
+  #loginError{color:#b3261e;font-size:13px;min-height:18px;}
+
+  .tabs{display:flex;gap:8px;margin-bottom:16px;}
+  .tab{flex:1;text-align:center;padding:10px;border-radius:8px;background:var(--card);border:1px solid var(--border);font-size:14px;cursor:pointer;}
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px;}
+
+  #captureBtn{display:block;width:100%;padding:16px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;margin-bottom:16px;}
+  #fileInput{display:none;}
+
+  .pending-item{display:flex;gap:12px;align-items:flex-start;}
+  .pending-item img{width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid var(--border);}
+  .pending-item .fields{flex:1;}
+  .pending-item label{font-size:11px;color:var(--muted);display:block;margin-bottom:2px;}
+  .pending-item input{width:100%;padding:7px;border:1px solid var(--border);border-radius:6px;font-size:14px;margin-bottom:6px;}
+  .badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;margin-bottom:6px;}
+  .badge.detectando{background:var(--warn-bg);color:var(--warn);}
+  .badge.detectado{background:var(--ok-bg);color:var(--ok);}
+  .row-actions{display:flex;gap:8px;margin-top:6px;}
+  .row-actions button{flex:1;padding:8px;border-radius:6px;border:none;font-size:13px;font-weight:600;}
+  .btn-guardar{background:var(--ok);color:#fff;}
+  .btn-borrar{background:#f1f0ea;color:var(--muted);}
+
+  #searchBox{width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:14px;font-size:14px;}
+  .day-group{margin-bottom:18px;}
+  .day-group h3{font-size:14px;color:var(--muted);margin:0 0 8px 4px;text-transform:uppercase;letter-spacing:.03em;}
+  .client-group{margin-bottom:10px;}
+  .client-group h4{font-size:14px;margin:0 0 6px 4px;}
+  .thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px;}
+  .thumbs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;border:1px solid var(--border);cursor:pointer;}
+
+  #lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:50;}
+  #lightbox img{max-width:92%;max-height:88%;border-radius:8px;}
+  #lightbox .close{position:absolute;top:16px;right:20px;color:#fff;font-size:28px;background:none;border:none;}
+
+  .empty{color:var(--muted);font-size:14px;text-align:center;padding:30px 0;}
+  #syncStatus{font-size:12px;color:var(--muted);text-align:center;margin-top:10px;}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <h2>Recuentos Sopena</h2>
+  <input type="email" id="loginEmail" placeholder="Correo" autocomplete="username">
+  <input type="password" id="loginPass" placeholder="Contraseña" autocomplete="current-password">
+  <button id="loginBtn">Entrar</button>
+  <p id="loginError"></p>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <h1>Recuentos Sopena</h1>
+    <button id="logoutBtn">Salir</button>
+  </header>
+
+  <main>
+    <div class="tabs">
+      <div class="tab active" data-tab="capturar">Capturar</div>
+      <div class="tab" data-tab="galeria">Galería</div>
+    </div>
+
+    <section id="tabCapturar">
+      <button id="captureBtn">📷 Hacer foto de recuento(s)</button>
+      <input type="file" id="fileInput" accept="image/*" capture="environment" multiple>
+      <div id="pendingList"></div>
+    </section>
+
+    <section id="tabGaleria" style="display:none">
+      <input type="text" id="searchBox" placeholder="Buscar por cliente...">
+      <div id="galleryList"></div>
+    </section>
+  </main>
+</div>
+
+<div id="lightbox">
+  <button class="close" id="lightboxClose">×</button>
+  <img id="lightboxImg" src="">
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import {
+  getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import {
+  getStorage, ref, uploadBytes, getDownloadURL
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+import {
+  getFunctions, httpsCallable
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
+
+// ---------------------------------------------------------------
+// CONFIGURACIÓN: sustituye por la config de tu proyecto Firebase
+// (Firebase console > Configuración del proyecto > Tus apps)
+// ---------------------------------------------------------------
+const firebaseConfig = {
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_PROYECTO.firebaseapp.com",
+  projectId: "TU_PROYECTO",
+  storageBucket: "TU_PROYECTO.appspot.com",
+  messagingSenderId: "TU_SENDER_ID",
+  appId: "TU_APP_ID"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+const functions = getFunctions(app, "europe-west1"); // ajusta la región si tu function está en otra
+const detectarClienteFn = httpsCallable(functions, "detectarCliente");
+
+// ---------------- LOGIN ----------------
+document.getElementById("loginBtn").onclick = async () => {
+  const email = document.getElementById("loginEmail").value.trim();
+  const pass = document.getElementById("loginPass").value;
+  const errEl = document.getElementById("loginError");
+  errEl.textContent = "";
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch (e) {
+    errEl.textContent = "Correo o contraseña incorrectos.";
+  }
+};
+document.getElementById("logoutBtn").onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, (user) => {
+  document.getElementById("loginScreen").style.display = user ? "none" : "block";
+  document.getElementById("app").style.display = user ? "block" : "none";
+  if (user) cargarGaleria();
+});
+
+// ---------------- TABS ----------------
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.onclick = () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
+    document.getElementById("tabCapturar").style.display = tab.dataset.tab === "capturar" ? "block" : "none";
+    document.getElementById("tabGaleria").style.display = tab.dataset.tab === "galeria" ? "block" : "none";
+  };
+});
+
+// ---------------- CAPTURA Y DETECCIÓN ----------------
+const captureBtn = document.getElementById("captureBtn");
+const fileInput = document.getElementById("fileInput");
+const pendingList = document.getElementById("pendingList");
+let pendingItems = []; // {id, file, previewUrl, cliente, fecha, estado}
+
+captureBtn.onclick = () => fileInput.click();
+
+fileInput.onchange = () => {
+  const files = Array.from(fileInput.files);
+  files.forEach(file => {
+    const id = crypto.randomUUID();
+    const previewUrl = URL.createObjectURL(file);
+    const hoy = new Date().toISOString().slice(0, 10);
+    const item = { id, file, previewUrl, cliente: "", fecha: hoy, estado: "detectando" };
+    pendingItems.push(item);
+    renderPending();
+    detectarCliente(item);
+  });
+  fileInput.value = "";
+};
+
+async function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result.split(",")[1]);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+async function detectarCliente(item) {
+  try {
+    const base64 = await fileToBase64(item.file);
+    const res = await detectarClienteFn({ imageBase64: base64, mediaType: item.file.type || "image/jpeg" });
+    item.cliente = res.data?.cliente || "";
+    item.estado = "detectado";
+  } catch (e) {
+    console.error("Error detectando cliente:", e);
+    item.estado = "detectado"; // deja el campo vacío para que lo rellene a mano
+  }
+  renderPending();
+}
+
+function renderPending() {
+  pendingList.innerHTML = "";
+  pendingItems.forEach(item => {
+    const div = document.createElement("div");
+    div.className = "card pending-item";
+    div.innerHTML = `
+      <img src="${item.previewUrl}">
+      <div class="fields">
+        <span class="badge ${item.estado}">${item.estado === "detectando" ? "Detectando cliente..." : "Cliente detectado"}</span>
+        <label>Cliente</label>
+        <input type="text" data-field="cliente" value="${item.cliente}" placeholder="Nombre del cliente">
+        <label>Fecha</label>
+        <input type="date" data-field="fecha" value="${item.fecha}">
+        <div class="row-actions">
+          <button class="btn-guardar">Guardar</button>
+          <button class="btn-borrar">Descartar</button>
+        </div>
+      </div>
+    `;
+    div.querySelector('[data-field="cliente"]').oninput = (e) => item.cliente = e.target.value;
+    div.querySelector('[data-field="fecha"]').oninput = (e) => item.fecha = e.target.value;
+    div.querySelector(".btn-guardar").onclick = () => guardarRecuento(item);
+    div.querySelector(".btn-borrar").onclick = () => {
+      pendingItems = pendingItems.filter(p => p.id !== item.id);
+      renderPending();
+    };
+    pendingList.appendChild(div);
+  });
+}
+
+async function guardarRecuento(item) {
+  if (!item.cliente.trim()) {
+    alert("Escribe el nombre del cliente antes de guardar.");
+    return;
+  }
+  const path = `recuentos/${item.fecha}/${Date.now()}_${item.file.name}`;
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, item.file);
+  const url = await getDownloadURL(storageRef);
+
+  await addDoc(collection(db, "recuentos"), {
+    cliente: item.cliente.trim(),
+    fecha: item.fecha,
+    url,
+    storagePath: path,
+    usuario: auth.currentUser.email,
+    creado: serverTimestamp()
+  });
+
+  pendingItems = pendingItems.filter(p => p.id !== item.id);
+  renderPending();
+}
+
+// ---------------- GALERÍA ----------------
+let todosLosRecuentos = [];
+
+function cargarGaleria() {
+  const q = query(collection(db, "recuentos"), orderBy("fecha", "desc"));
+  onSnapshot(q, (snap) => {
+    todosLosRecuentos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderGaleria();
+  });
+}
+
+document.getElementById("searchBox").oninput = renderGaleria;
+
+function renderGaleria() {
+  const filtro = document.getElementById("searchBox").value.trim().toLowerCase();
+  const galleryList = document.getElementById("galleryList");
+  const filtrados = filtro
+    ? todosLosRecuentos.filter(r => r.cliente.toLowerCase().includes(filtro))
+    : todosLosRecuentos;
+
+  if (filtrados.length === 0) {
+    galleryList.innerHTML = `<p class="empty">No hay recuentos que mostrar.</p>`;
+    return;
+  }
+
+  const porFecha = {};
+  filtrados.forEach(r => {
+    porFecha[r.fecha] = porFecha[r.fecha] || {};
+    porFecha[r.fecha][r.cliente] = porFecha[r.fecha][r.cliente] || [];
+    porFecha[r.fecha][r.cliente].push(r);
+  });
+
+  galleryList.innerHTML = "";
+  Object.keys(porFecha).sort().reverse().forEach(fecha => {
+    const dayDiv = document.createElement("div");
+    dayDiv.className = "day-group";
+    dayDiv.innerHTML = `<h3>${formatearFecha(fecha)}</h3>`;
+    Object.keys(porFecha[fecha]).sort().forEach(cliente => {
+      const clientDiv = document.createElement("div");
+      clientDiv.className = "client-group";
+      clientDiv.innerHTML = `<h4>${cliente}</h4><div class="thumbs"></div>`;
+      const thumbs = clientDiv.querySelector(".thumbs");
+      porFecha[fecha][cliente].forEach(r => {
+        const img = document.createElement("img");
+        img.src = r.url;
+        img.onclick = () => abrirLightbox(r.url);
+        thumbs.appendChild(img);
+      });
+      dayDiv.appendChild(clientDiv);
+    });
+    galleryList.appendChild(dayDiv);
+  });
+}
+
+function formatearFecha(iso) {
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+}
+
+function abrirLightbox(url) {
+  document.getElementById("lightboxImg").src = url;
+  document.getElementById("lightbox").style.display = "flex";
+}
+document.getElementById("lightboxClose").onclick = () => {
+  document.getElementById("lightbox").style.display = "none";
+};
+document.getElementById("lightbox").onclick = (e) => {
+  if (e.target.id === "lightbox") document.getElementById("lightbox").style.display = "none";
+};
+</script>
+</body>
+</html>
